@@ -75,33 +75,46 @@ class ArtistNameSearchMixin(MixinBase):
         pass
 
 
-class AlbumByArtistMixin(MixinBase):
+class ReleaseGroupByArtistMixin(MixinBase):
     """
-    Gets albums for artist
+    Gets release groups for artist
     """
 
     @abc.abstractmethod
-    def get_albums_by_artist(self, artist_id):
+    def get_release_groups_by_artist(self, artist_id):
         """
-        Gets albums by artist by ID
+        Gets release groups by artist by ID
         :param artist_id: ID of artist
-        :return: List of albums by artist
+        :return: List of release groups by artist
         """
         pass
 
 
-class AlbumByIdMixin(MixinBase):
+class ReleaseGroupByIdMixin(MixinBase):
     """
-    Gets album by ID
+    Gets release group by ID
     """
 
     @abc.abstractmethod
-    def get_album_by_id(self, rgid, rid=None):
+    def get_release_group_by_id(self, rgid):
         """
-        Gets album by ID
+        Gets release group by ID
         :param rgid: Release group ID
-        :param rid: Release ID of individual release. Defaults to None, in which case the first result is chosen
-        :return: Album corresponding to rgid or rid
+        :return: Release Group corresponding to rgid
+        """
+        pass
+
+class ReleasesByReleaseGroupIdMixin(MixinBase):
+    """
+    Gets releases by ReleaseGroup ID
+    """
+
+    @abc.abstractmethod
+    def get_releases_by_rgid(self, rgid):
+        """
+        Gets releases by release group ID
+        :param rgid: Release group ID
+        :return: Releases corresponding to rgid or rid
         """
         pass
 
@@ -120,20 +133,28 @@ class MediaByAlbumMixin(MixinBase):
         """
 
 
-class TracksByAlbumMixin(MixinBase):
+class TracksByReleaseGroupMixin(MixinBase):
     """
-    Gets tracks by album is
+    Gets tracks by release group
     """
 
     @abc.abstractmethod
-    def get_album_tracks(self, album_id):
+    def get_release_group_tracks(self, rgid):
         """
         Gets tracks in album
-        :param album_id: ID of album
-        :return: List of tracks in album
+        :rgid album_id: ID of release group
+        :return: List of tracks in all releases of a release group
         """
         pass
 
+    @abc.abstractmethod
+    def get_release_group_artists(self, rgid):
+        """
+        Gets all the artists associated with a release group ID
+        :param rgid: Release group ID
+        :return: All artists credited as lead credit on tracks on releases
+        """
+        pass
 
 class TrackSearchMixin(MixinBase):
     """
@@ -370,203 +391,16 @@ class LastFmProvider(Provider,
                 for result in results]
 
 
-class MusicbrainzApiProvider(Provider,
-                             ArtistByIdMixin,
-                             ArtistLinkMixin,
-                             ArtistNameSearchMixin,
-                             AlbumByArtistMixin,
-                             TracksByAlbumMixin):
-    """
-     Provider that utilizes the musicbrainz API
-    """
-
-    def __init__(self, host='musicbrainz.org'):
-        super(MusicbrainzApiProvider, self).__init__()
-
-        # Set up client. Since musicbrainzngs has its functions operate on a
-        # module namespace, we need to have a module import for each instance
-        self.client = imp.load_module('self.client',
-                                      *imp.find_module('musicbrainzngs'))
-        self.client.set_rate_limit(False)
-        self.client.set_useragent('lidarr-metadata', lidarrmetadata.__version__)
-        self.client.set_hostname(host)
-
-    def get_artist_by_id(self, artist_id):
-        mb_response = self.client.get_artist_by_id(artist_id,
-                                                   includes=['url-rels'])
-        return self._parse_mb_artist(mb_response['artist'])
-
-    def get_artist_links(self, artist_id):
-        return self.get_artist_by_id(artist_id)['Links']
-
-    def get_album_tracks(self, album_id):
-        return self.search_album('', rgid=album_id)[0]['Tracks']
-
-    def get_albums_by_artist(self, artist_id):
-        return self.search_album('', arid=artist_id)
-
-    def search_artist_name(self, name, limit=None):
-        return self.search_artist(name)
-
-    def _search_artist(self, query, **kwargs):
-        """
-        Searches for an artist
-        :param query: Artist query
-        :param kwargs: Keyword arguments to send to musicbrainzngs search
-        :return:
-        """
-        query = self._mb_escaped_query(query)
-        mb_response = self.client.search_artists(query, **kwargs)['artist-list']
-        return [{'Id': artist['id'],
-                 'ArtistName': artist['name']}
-                for artist in mb_response]
-
-    def artist_by_id(self, mbid, **kwargs):
-        """
-        Gets artist by ID
-        :param mbid: Musicbrainz ID of artist
-        :param kwargs: Keyword args to supply to musicbrainz call
-        :return: Dictionary of result
-        """
-        mb_response = self.client.get_artist_by_id(mbid, **kwargs)['artist']
-        artist = self._parse_mb_artist(mb_response)
-        i = 0
-        limit = 100
-        artist['Albums'] = []
-
-        while len(artist['Albums']) == i * limit:
-            artist['Albums'].extend(self.search_album('',
-                                                      limit=limit,
-                                                      offset=i * limit,
-                                                      arid=artist['Id']))
-            i += 1
-
-        return artist
-
-    def search_artist(self, query, **kwargs):
-        """
-        Searches musicbrainz for artist
-        :param query: Artist query
-        :param kwargs: Keyword args to supply to search call
-        :return: List of dictionaries of result
-        """
-        query = self._mb_escaped_query(query)
-        mb_response = self.client.search_artists(query, **kwargs)['artist-list']
-        return [self._parse_mb_artist(artist) for artist in mb_response]
-
-    def search_album(self, query, limit=100, offset=0, **kwargs):
-        """
-        Searches musicbrainz for album query
-        :param query: Search query
-        :param limit: Limit of results for a single page
-        :param offset: Search offset. Use this if searching multiple times
-        :param kwargs: Keyword args passed as fields to muscbrainz search
-        :return: Dict of album object
-        """
-        mb_response = \
-            self.client.search_release_groups(self._mb_escaped_query(query),
-                                              limit=limit,
-                                              offset=offset,
-                                              **kwargs)['release-group-list']
-
-        return [self._parse_mb_album(mb_album) for mb_album in mb_response]
-
-    @staticmethod
-    def _mb_escaped_query(query):
-        """
-        Escapes a query for musicbrainz
-        :param query: Query to escape
-        :return: Escapes special characters with \
-        """
-        escaped_query = ''
-        for c in query:
-            if not c.isalnum() and c not in ['-', '.', '-', '/']:
-                escaped_query += '\\'
-
-            escaped_query += c
-
-        return escaped_query
-
-    @staticmethod
-    def _mb_album_type(mb_release_group):
-        """
-        Gets album type from musicbrainz release group
-        :param mb_release_group: Release group from musicbrainz response
-        :return: Album type as string
-        """
-        return mb_release_group.get('secondary-type-list',
-                                    [mb_release_group.get('primary-type',
-                                                          'Unknown')])[0]
-
-    def _parse_mb_album(self, mb_release_group):
-        """
-        Parses album (release) response from musicbrainz
-        :param mb_release_group: Response from muscbrainz
-        :return: Dict of the format wanted by api
-        """
-        try:
-            mb_release = \
-                self.client.get_release_by_id(
-                    mb_release_group['release-list'][0]['id'],
-                    includes=['recordings'])['release']
-        except self.client.ResponseError:
-            mb_release = {}
-
-        artists = [
-            {'Id': artist['artist']['id'],
-             'ArtistName': artist['artist']['name']}
-            for artist in mb_release_group['artist-credit'] if
-            isinstance(artist, dict)]
-
-        return {'Id': mb_release_group['id'],
-                'Title': mb_release_group['title'],
-                'Artists': artists,
-                'ReleaseDate': dateutil.parser.parse(
-                    mb_release['date']) if 'date' in mb_release else '',
-                'Genres': [],
-                'Overview': '',
-                'Label': '',
-                'Type': self._mb_album_type(mb_release_group),
-                'Tracks': [self._parse_mb_track(track) for track in
-                           mb_release.get('medium-list',
-                                          [{}])[0].get('track-list', [])]}
-
-    @staticmethod
-    def _parse_mb_artist(mb_artist):
-        """
-        Parses artist response from musicbrainz
-        :param mb_artist: Resposne from muscbrainz
-        :return: Dict of the format wanted by API
-        """
-        return {'Id': mb_artist['id'],
-                'ArtistName': mb_artist['name'],
-                'Overview': mb_artist.get('disambiguation', ''),
-                'Images': [],
-                'Genres': '',
-                'Links': mb_artist.get('url-relation-list', [])}
-
-    @staticmethod
-    def _parse_mb_track(mb_track):
-        """
-        Parses track/recording response from musicbrainz
-        :param mb_track: Recording result from musicbrainz
-        :return: Dict of format wanted by api
-        """
-        return {'Id': mb_track['id'],
-                'TrackName': mb_track['recording']['title'],
-                'TrackNumber': mb_track['position'],
-                'DurationMs': int(mb_track.get('length', 0)) or None}
-
-
 class MusicbrainzDbProvider(Provider,
                             ArtistByIdMixin,
                             ArtistLinkMixin,
                             ArtistNameSearchMixin,
-                            AlbumByArtistMixin,
-                            AlbumByIdMixin,
+                            ReleaseGroupByArtistMixin,
+                            ReleaseGroupByIdMixin,
+                            ReleasesByReleaseGroupIdMixin,
                             AlbumNameSearchMixin,
                             MediaByAlbumMixin,
-                            TracksByAlbumMixin,
+                            TracksByReleaseGroupMixin,
                             TrackSearchMixin):
     """
     Provider for directly querying musicbrainz database
@@ -613,7 +447,6 @@ class MusicbrainzDbProvider(Provider,
             return {}
         return {'Id': results['gid'],
                 'ArtistName': results['name'],
-                'SortName': results['sort_name'],
                 'Status': 'ended' if results['ended'] else 'active',
                 'Type': results['type'] or 'Artist',
                 'Disambiguation': results['comment'],
@@ -683,73 +516,55 @@ class MusicbrainzDbProvider(Provider,
                  'Rating': {'Count': result['rating_count'] or 0, 'Value': (result['rating'] or 0) / 10 or None}}
                 for result in results]
 
-    def get_album_by_id(self, rgid, rid=None):
+    def get_release_group_by_id(self, rgid):
         release_groups = self.query_from_file('release_group_by_id.sql', [rgid])
-
-        if not release_groups:
+        if release_groups:
+            release_group = release_groups[0]
+        else:
             return {}
 
-        rid = rid or release_groups[0]['release_id']
-
-        releases = filter(lambda rg: rg['release_id'] == rid, release_groups)
-        release = releases[0] if releases else None
-
-        if not release:
-            return {}
-
-        album = {
-            'Id': release_groups[0]['gid'],
-            'Disambiguation': release_groups[0]['comment'],
-            'Title': release['release_name'],
-            'Type': release_groups[0]['primary_type'],
-            'SecondaryTypes': release_groups[0]['secondary_types'],
-            'ReleaseDate': datetime.datetime(release_groups[0]['year'] or 1,
-                                             release_groups[0]['month'] or 1,
-                                             release_groups[0]['day'] or 1),
-            'Label': release['label'],
-            'Artist': {'Id': release_groups[0]['artist_id'], 'Name': release_groups[0]['artist_name']},
-            'SelectedRelease': rid,
-            'Rating': {'Count': release_groups[0]['rating_count'],
-                       'Value': (release_groups[0]['rating'] or 0) / 10 or None}
+        return {
+            'Id': release_group['gid'],
+            'Disambiguation': release_group['comment'],
+            'Title': release_group['name'],
+            'Type': release_group['primary_type'],
+            'SecondaryTypes': release_group['secondary_types'],
+            'ReleaseDate': datetime.datetime(release_group['year'] or 1,
+                                             release_group['month'] or 1,
+                                             release_group['day'] or 1),
+            'ArtistId': release_group['artist_id'],
+            'Rating': {'Count': release_group['rating_count'],
+                       'Value': (release_group['rating'] or 0) / 10 or None}
         }
 
-        releases = [{'Id': release_group['release_id'],
-                     'Disambiguation': release_group['release_comment'],
-                     'Country': release_group['country'],
-                     'Label': release_group['label'],
-                     'ReleaseDate': datetime.datetime(release_group['release_year'] or 1,
-                                                      release_group['release_month'] or 1,
-                                                      release_group['release_day'] or 1),
-                     'ReleaseStatus': release_group['release_status'],
-                     'MediaCount': release_group['media_count'],
-                     'TrackCount': release_group['track_count'],
-                     'Title': release_group['release_name'],
-                     'Format': [release_group['format']]}
-                    for release_group in release_groups]
+    def get_releases_by_rgid(self, rgid):
 
-        # Combine formats
-        # TODO Rework data code and find a better solution for this
-        combined_releases = {}
-        for release in releases:
-            id_ = release['Id']
-            if id_ in combined_releases:
-                combined_releases[id_]['Format'].extend(release['Format'])
-            else:
-                combined_releases[id_] = release
+        releases = self.query_from_file('release_by_release_group_id.sql', [rgid])
+        if not releases:
+            return {}
 
-        for release in combined_releases.values():
-            format_counter = collections.Counter(release['Format'])
-            formats = []
-            for medium, count in format_counter.items():
-                if medium:
-                    format_ = '' if count == 1 else '{}x'.format(count)
-                    formats.append(format_ + medium)
+        return [{'Id': release['gid'],
+                 'Title': release['name'],
+                 'Disambiguation': release['comment'],
+                 'Status': release['status'],
+                 'Label': release['label'],
+                 'Country': release['country'],
+                 'Media': release['media'],
+                 'TrackCount': release['track_count']}
+                for release in releases]
 
-            release['Format'] = ' + '.join(formats)
+    def get_release_group_artists(self, rgid):
+        artists = self.query_from_file('artist_by_release_group.sql', [rgid])
+        if not artists:
+            return {}
 
-        album['Releases'] = combined_releases.values()
-
-        return album
+        return [{'Id': artist['gid'],
+                 'ArtistName': artist['name'],
+                 'Status': 'ended' if artist['ended'] else 'active',
+                 'Type': artist['type'] or 'Artist',
+                 'Disambiguation': artist['comment'],
+                 'Rating': {'Count': artist['rating_count'] or 0, 'Value': (artist['rating'] or 0) / 10 or None}}
+                for artist in artists]
 
     def get_album_media(self, album_id):
         results = self.query_from_file('media_album_mbid.sql',
@@ -759,11 +574,11 @@ class MusicbrainzDbProvider(Provider,
                  'Position': result['medium_position']}
                 for result in results]
 
-    def get_album_tracks(self, album_id):
-        results = self.query_from_file('track_album_mbid.sql',
-                                       [album_id])
+    def get_release_group_tracks(self, rgid):
+        results = self.query_from_file('track_release_group.sql', [rgid])
 
         return [{'Id': result['gid'],
+                 'ReleaseId': result['release_id'],
                  'TrackName': result['name'],
                  'DurationMs': result['length'],
                  'MediumNumber': result['medium_position'],
@@ -771,19 +586,23 @@ class MusicbrainzDbProvider(Provider,
                  'TrackPosition': result['position']}
                 for result in results]
 
-    def get_albums_by_artist(self, artist_id):
-        results = self.query_from_file('album_search_artist_mbid.sql',
+    def get_release_groups_by_artist(self, artist_id):
+        results = self.query_from_file('release_group_search_artist_mbid.sql',
                                        [artist_id])
 
         return [{'Id': result['gid'],
+                 'ArtistId': artist_id,
                  'Disambiguation': result['comment'],
                  'Title': result['album'],
                  'Type': result['primary_type'],
                  'SecondaryTypes': result['secondary_types'],
-                 'ReleaseStatuses': result['release_statuses'],
                  'ReleaseDate': datetime.datetime(result['year'] or 1,
                                                   result['month'] or 1,
-                                                  result['day'] or 1)}
+                                                  result['day'] or 1),
+                 'Rating': {
+                     'Count': result['rating_count'],
+                     'Value': (result['rating'] or 0) / 10 or None
+                 }}
                 for result in results]
 
     def get_artist_links(self, artist_id):
