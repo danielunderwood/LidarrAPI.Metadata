@@ -159,6 +159,8 @@ def get_release_group_info(mbid):
     release_providers = provider.get_providers_implementing(provider.ReleasesByReleaseGroupIdMixin)
     album_art_providers = provider.get_providers_implementing(
         provider.AlbumArtworkMixin)
+    artist_art_providers = provider.get_providers_implementing(
+        provider.ArtistArtworkMixin)
     track_providers = provider.get_providers_implementing(provider.TracksByReleaseGroupMixin)
 
     if release_group_providers:
@@ -187,6 +189,12 @@ def get_release_group_info(mbid):
             release_group['Id'], cache_only=True)
     else:
         release_group['Images'] = []
+
+    if artist_art_providers:
+        for artist in release_group['Artists']:
+            artist['Images'] = artist_art_providers[0].get_artist_images(mbid)
+        else:
+            artist['Images'] = []
 
     return jsonify(release_group)
 
