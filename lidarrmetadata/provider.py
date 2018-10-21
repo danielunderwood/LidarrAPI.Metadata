@@ -579,6 +579,7 @@ class MusicbrainzDbProvider(Provider,
 
         return [{'Id': result['gid'],
                  'ReleaseId': result['release_id'],
+                 'ArtistId': result['artist_id'],
                  'TrackName': result['name'],
                  'DurationMs': result['length'],
                  'MediumNumber': result['medium_position'],

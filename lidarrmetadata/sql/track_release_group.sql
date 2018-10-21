@@ -6,9 +6,12 @@ SELECT
   track.number,
   track.length,
   medium.position    AS medium_position,
-  release.gid        AS release_id
+  release.gid        AS release_id,
+  artist.gid         AS artist_id
 FROM track
   JOIN medium ON track.medium = medium.id
   JOIN release ON medium.release = release.id
   JOIN release_group ON release_group.id = release.release_group
-WHERE release_group.gid = %s
+  JOIN artist_credit_name ON artist_credit_name.artist_credit = track.artist_credit
+  JOIN artist ON artist_credit_name.artist = artist.id
+WHERE release_group.gid = %s AND artist_credit_name.position = 0
