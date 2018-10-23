@@ -746,7 +746,8 @@ class WikipediaProvider(Provider, ArtistOverviewMixin):
     Provider for querying wikipedia
     """
 
-    URL_REGEX = re.compile(r'https?://\w+\.wikipedia\.org/wiki/(?P<title>.+)')
+    WIKIPEDIA_REGEX = re.compile(r'https?://\w+\.wikipedia\.org/wiki/(?P<title>.+)')
+    WIKIDATA_REGEX = re.compile(r'https?://www.wikidata.org/wiki/(?P<entity>.+)')
 
     def __init__(self):
         """
@@ -756,17 +757,26 @@ class WikipediaProvider(Provider, ArtistOverviewMixin):
         self._client = mediawikiapi.MediaWikiAPI()
 
     def get_artist_overview(self, url):
-        return self.get_summary(url)
+        if 'wikidata' in url:
+            title = self.get_wikipedia_title(url)
+        else:
+            title = self.title_from_url(url)
+        return self.get_summary(title)
+
+    def get_wikipedia_title(self, url):
+        entity = self.entity_from_url(url)
+        wikidata_url = 'https://www.wikidata.org/w/api.php?action=wbgetentities&ids=' + entity + '&props=sitelinks&sitefilter=enwiki&format=json'
+        data = requests.get(wikidata_url).json()
+        return data['entities'][entity]['sitelinks']['enwiki']['title']
 
     @util.CACHE.memoize()
-    def get_summary(self, url):
+    def get_summary(self, title):
         """
         Gets summary of a wikipedia page
         :param url: URL of wikipedia page
         :return: Summary String
         """
         try:
-            title = self.title_from_url(url)
             return self._client.summary(title, auto_suggest=False)
         # FIXME Both of these may be recoverable
         except mediawikiapi.PageError as error:
@@ -787,10 +797,26 @@ class WikipediaProvider(Provider, ArtistOverviewMixin):
         :param url: URL of wikipedia page
         :return: Title of page at URL
         """
-        match = cls.URL_REGEX.match(url)
+        match = cls.WIKIPEDIA_REGEX.match(url)
 
         if not match:
-            raise ValueError('URL {} does not match regex `{}`'.format(url, cls.URL_REGEX.pattern))
+            raise ValueError('URL {} does not match regex `{}`'.format(url, cls.WIKIPEDIA_REGEX.pattern))
 
         title = match.group('title')
         return url_unquote(title)
+
+    @classmethod
+    def entity_from_url(cls, url):
+        """
+        Gets the wikidata entity id from the url. This may not work for URLs with
+        certain special characters
+        :param url: URL of wikidata page
+        :return: Entity referred to
+        """
+        match = cls.WIKIDATA_REGEX.match(url)
+
+        if not match:
+            raise ValueError('URL {} does not match regex `{}`'.format(url, cls.WIKIDATA_REGEX.pattern))
+
+        id = match.group('entity')
+        return url_unquote(id)
