@@ -151,6 +151,12 @@ def get_artist_info(mbid):
         artist['ReleaseGroups'] = filter(lambda release_group: (release_group['SecondaryTypes'] == [] and 'Studio' in secondary_types)
                                                 or secondary_types.intersection(release_group.get('SecondaryTypes')),
                                   artist['ReleaseGroups'])
+    release_statuses = request.args.get('releaseStatuses', None)
+    if release_statuses:
+        release_statuses = set(release_statuses.split('|'))
+        artist['ReleaseGroups'] = filter(lambda album: release_statuses.intersection(album.get('ReleaseStatuses')),
+                                  artist['ReleaseGroups'])
+
 
     return jsonify(artist)
 
@@ -180,6 +186,11 @@ def get_release_group_info(mbid):
 
     if release_providers:
         release_group['Releases'] = release_providers[0].get_releases_by_rgid(mbid)
+        
+    else:
+        # 500 error if we don't have a release provider since it's essential
+        return jsonify(error='No release provider available'), 500
+
 
     if track_providers:
         tracks = track_providers[0].get_release_group_tracks(mbid)
