@@ -148,7 +148,7 @@ class TracksByReleaseGroupMixin(MixinBase):
         pass
 
     @abc.abstractmethod
-    def get_release_group_artists(self, rgid):
+    def get_release_group_artist_ids(self, rgid):
         """
         Gets all the artists associated with a release group ID
         :param rgid: Release group ID
@@ -553,18 +553,8 @@ class MusicbrainzDbProvider(Provider,
                  'TrackCount': release['track_count']}
                 for release in releases]
 
-    def get_release_group_artists(self, rgid):
-        artists = self.query_from_file('artist_by_release_group.sql', [rgid])
-        if not artists:
-            return {}
-
-        return [{'Id': artist['gid'],
-                 'ArtistName': artist['name'],
-                 'Status': 'ended' if artist['ended'] else 'active',
-                 'Type': artist['type'] or 'Artist',
-                 'Disambiguation': artist['comment'],
-                 'Rating': {'Count': artist['rating_count'] or 0, 'Value': (artist['rating'] or 0) / 10 or None}}
-                for artist in artists]
+    def get_release_group_artist_ids(self, rgid):
+        return [x['gid'] for x in self.query_from_file('artist_by_release_group.sql', [rgid])]
 
     def get_album_media(self, album_id):
         results = self.query_from_file('media_album_mbid.sql',
