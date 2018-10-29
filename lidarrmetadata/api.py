@@ -95,7 +95,7 @@ def get_artist_info_route(mbid):
 
     return output
 
-def get_artist_info(mbid, include_releasegroups, primary_types, secondary_types, release_statuses):
+def get_artist_info(mbid, include_albums, primary_types, secondary_types, release_statuses):
     
     uuid_validation_response = validate_mbid(mbid)
     if uuid_validation_response:
@@ -146,11 +146,11 @@ def get_artist_info(mbid, include_releasegroups, primary_types, secondary_types,
     else:
         artist['Images'] = []
 
-    if include_releasegroups:
+    if include_albums:
         release_group_providers = provider.get_providers_implementing(
             provider.ReleaseGroupByArtistMixin)
         if release_group_providers:
-            artist['ReleaseGroups'] = release_group_providers[0].get_release_groups_by_artist(mbid)
+            artist['Albums'] = release_group_providers[0].get_release_groups_by_artist(mbid)
         else:
             # 500 error if we don't have a release group provider since it's essential
             return jsonify(error='No release group provider available'), 500
@@ -159,21 +159,21 @@ def get_artist_info(mbid, include_releasegroups, primary_types, secondary_types,
         # TODO Should types be part of album query?
         if primary_types:
             primary_types = primary_types.split('|')
-            artist['ReleaseGroups'] = filter(lambda release_group: release_group.get('Type') in primary_types, artist['ReleaseGroups'])
+            artist['Albums'] = filter(lambda release_group: release_group.get('Type') in primary_types, artist['Albums'])
         if secondary_types:
             secondary_types = set(secondary_types.split('|'))
-            artist['ReleaseGroups'] = filter(lambda release_group: (release_group['SecondaryTypes'] == [] and 'Studio' in secondary_types)
+            artist['Albums'] = filter(lambda release_group: (release_group['SecondaryTypes'] == [] and 'Studio' in secondary_types)
                                              or secondary_types.intersection(release_group.get('SecondaryTypes')),
-                                             artist['ReleaseGroups'])
+                                             artist['Albums'])
         if release_statuses:
             release_statuses = set(release_statuses.split('|'))
-            artist['ReleaseGroups'] = filter(lambda album: release_statuses.intersection(album.get('ReleaseStatuses')),
-                                         artist['ReleaseGroups'])
+            artist['Albums'] = filter(lambda album: release_statuses.intersection(album.get('ReleaseStatuses')),
+                                         artist['Albums'])
 
     return artist
 
 
-@app.route('/releasegroup/<mbid>', methods=['GET'])
+@app.route('/album/<mbid>', methods=['GET'])
 @util.CACHE.cached(key_prefix=lambda: request.url)
 def get_release_group_info(mbid):
     uuid_validation_response = validate_mbid(mbid)
@@ -194,7 +194,7 @@ def get_release_group_info(mbid):
         return jsonify(error='No album provider available'), 500
 
     if not release_group:
-        return jsonify(error='Release group not found'), 404
+        return jsonify(error='Album not found'), 404
 
     if release_providers:
         release_group['Releases'] = release_providers[0].get_releases_by_rgid(mbid)
