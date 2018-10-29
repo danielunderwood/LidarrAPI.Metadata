@@ -83,11 +83,17 @@ def default_route():
 @app.route('/artist/<mbid>', methods=['GET'])
 @util.CACHE.cached(key_prefix=lambda: request.url)
 def get_artist_info_route(mbid):
-    return jsonify(get_artist_info(mbid,
-                                   True,
-                                   request.args.get('primTypes', None),
-                                   request.args.get('secTypes', None),
-                                   request.args.get('releaseStatuses', None)))
+
+    output = get_artist_info(mbid,
+                             True,
+                             request.args.get('primTypes', None),
+                             request.args.get('secTypes', None),
+                             request.args.get('releaseStatuses', None))
+
+    if (type(output) is dict):
+        output = jsonify(output)
+
+    return output
 
 def get_artist_info(mbid, include_releasegroups, primary_types, secondary_types, release_statuses):
     
