@@ -758,7 +758,10 @@ class WikipediaProvider(Provider, ArtistOverviewMixin):
         entity = self.entity_from_url(url)
         wikidata_url = 'https://www.wikidata.org/w/api.php?action=wbgetentities&ids=' + entity + '&props=sitelinks&sitefilter=enwiki&format=json'
         data = requests.get(wikidata_url).json()
-        return data['entities'][entity]['sitelinks']['enwiki']['title']
+        sitelinks = data['entities'][entity]['sitelinks']
+        if 'enwiki' in sitelinks:
+            return sitelinks['enwiki']['title']
+        return ''
 
     @util.CACHE.memoize()
     def get_summary(self, title):
