@@ -450,7 +450,7 @@ class MusicbrainzDbProvider(Provider,
                 'Status': 'ended' if results['ended'] else 'active',
                 'Type': results['type'] or 'Artist',
                 'Disambiguation': results['comment'],
-                'Rating': {'Count': results['rating_count'] or 0, 'Value': (results['rating'] or 0) / 10 or None}}
+                'Rating': {'Count': results['rating_count'] or 0, 'Value': results['rating'] / 10 if results['rating'] is not None else None}}
 
     def search_artist_name(self, name, limit=None):
         name = self.mb_encode(name)
@@ -470,7 +470,7 @@ class MusicbrainzDbProvider(Provider,
                  'ArtistName': result['name'],
                  'Type': result['type'] or 'Artist',
                  'Disambiguation': result['comment'],
-                 'Rating': {'Count': result['rating_count'] or 0, 'Value': (result['rating'] or 0) / 10 or None}}
+                 'Rating': {'Count': result['rating_count'] or 0, 'Value': result['rating'] / 10 if result['rating'] is not None else None}}
                 for result in results]
 
     def search_album_name(self, name, limit=None, artist_name=''):
@@ -513,7 +513,7 @@ class MusicbrainzDbProvider(Provider,
                                                   result['month'] or 1,
                                                   result['day'] or 1),
                  'Artist': {'Id': result['artist_id'], 'Name': result['artist_name']},
-                 'Rating': {'Count': result['rating_count'] or 0, 'Value': (result['rating'] or 0) / 10 or None}}
+                'Rating': {'Count': result['rating_count'] or 0, 'Value': result['rating'] / 10 if result['rating'] is not None else None}}
                 for result in results]
 
     def get_release_group_by_id(self, rgid):
@@ -533,8 +533,8 @@ class MusicbrainzDbProvider(Provider,
                                              release_group['month'] or 1,
                                              release_group['day'] or 1),
             'ArtistId': release_group['artist_id'],
-            'Rating': {'Count': release_group['rating_count'],
-                       'Value': (release_group['rating'] or 0) / 10 or None}
+            'Rating': {'Count': release_group['rating_count'] or 0,
+                       'Value': release_group['rating'] / 10 if release_group['rating'] is not None else None}
         }
 
     def get_releases_by_rgid(self, rgid):
@@ -592,8 +592,8 @@ class MusicbrainzDbProvider(Provider,
                                                   result['month'] or 1,
                                                   result['day'] or 1),
                  'Rating': {
-                     'Count': result['rating_count'],
-                     'Value': (result['rating'] or 0) / 10 or None
+                     'Count': result['rating_count'] or 0,
+                     'Value': result['rating'] / 10 if result['rating'] is not None else None
                  }}
                 for result in results]
 
@@ -645,8 +645,8 @@ class MusicbrainzDbProvider(Provider,
                  'AlbumTitle': result['rg_title'],
                  'AlbumId': result['rg_gid'],
                  'Rating': {
-                     'Count': result['rating_count'],
-                     'Value': (result['rating'] or 0) / 10 or None
+                     'Count': result['rating_count'] or 0,
+                     'Value': result['rating'] / 10 if result['rating'] is not None else None
                  }}
                 for result in results]
 
