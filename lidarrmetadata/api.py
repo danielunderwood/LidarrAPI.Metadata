@@ -124,19 +124,19 @@ def get_artist_info(mbid, include_albums, primary_types, secondary_types, releas
         artist['Links'] = link_providers[0].get_artist_links(mbid)
 
     if overview_providers:
-        wikipedia_links = filter(
-            lambda link: 'wikipedia' in link.get('target', ''),
-            artist['Links'])
         wikidata_links = filter(
             lambda link: 'wikidata' in link.get('target', ''),
             artist['Links'])
+        wikipedia_links = filter(
+            lambda link: 'wikipedia' in link.get('target', ''),
+            artist['Links'])
 
-        if wikipedia_links:
-            artist['Overview'] = overview_providers[0].get_artist_overview(
-                wikipedia_links[0]['target'])
-        elif wikidata_links:
+        if wikidata_links:
             artist['Overview'] = overview_providers[0].get_artist_overview(
                 wikidata_links[0]['target'])
+        elif wikipedia_links:
+            artist['Overview'] = overview_providers[0].get_artist_overview(
+                wikipedia_links[0]['target'])
 
     if 'Overview' not in artist:
         artist['Overview'] = ''
