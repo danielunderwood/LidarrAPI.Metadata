@@ -90,7 +90,7 @@ def get_artist_info_route(mbid):
                              request.args.get('secTypes', None),
                              request.args.get('releaseStatuses', None))
 
-    if (isinstance(output, dict)):
+    if isinstance(output, dict):
         output = jsonify(output)
 
     return output
