@@ -568,6 +568,7 @@ class MusicbrainzDbProvider(Provider,
         results = self.query_from_file('track_release_group.sql', [rgid])
 
         return [{'Id': result['gid'],
+                 'RecordingId': result['recording_id'],
                  'ReleaseId': result['release_id'],
                  'ArtistId': result['artist_id'],
                  'TrackName': result['name'],
