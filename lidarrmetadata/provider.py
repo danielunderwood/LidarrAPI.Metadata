@@ -739,7 +739,7 @@ class WikipediaProvider(Provider, ArtistOverviewMixin):
     """
 
     WIKIPEDIA_REGEX = re.compile(r'https?://\w+\.wikipedia\.org/wiki/(?P<title>.+)')
-    WIKIDATA_REGEX = re.compile(r'https?://www.wikidata.org/wiki/(?P<entity>.+)')
+    WIKIDATA_REGEX = re.compile(r'https?://www.wikidata.org/(wiki|entity)/(?P<entity>.+)')
 
     def __init__(self):
         """
