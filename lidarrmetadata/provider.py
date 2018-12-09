@@ -228,6 +228,20 @@ class ArtistLinkMixin(MixinBase):
         """
         pass
 
+class ReleaseGroupLinkMixin(MixinBase):
+    """
+    Gets links for release group
+    """
+
+    @abc.abstractmethod
+    def get_release_group_links(self, release_group_id):
+        """
+        Gets links for release_group with id
+        :param release_group_id: ID of release_group
+        :return: List of links
+        """
+        pass
+
 
 class AlbumNameSearchMixin(MixinBase):
     """
@@ -398,6 +412,7 @@ class MusicbrainzDbProvider(Provider,
                             ReleaseGroupByArtistMixin,
                             ReleaseGroupByIdMixin,
                             ReleasesByReleaseGroupIdMixin,
+                            ReleaseGroupLinkMixin,
                             AlbumNameSearchMixin,
                             MediaByAlbumMixin,
                             TracksByReleaseGroupMixin,
@@ -601,6 +616,13 @@ class MusicbrainzDbProvider(Provider,
     def get_artist_links(self, artist_id):
         results = self.query_from_file('links_artist_mbid.sql',
                                        [artist_id])
+        return [{'target': result['url'],
+                 'type': self.parse_url_source(result['url'])}
+                for result in results]
+
+    def get_release_group_links(self, release_group_id):
+        results = self.query_from_file('links_release_group_mbid.sql',
+                                       [release_group_id])
         return [{'target': result['url'],
                  'type': self.parse_url_source(result['url'])}
                 for result in results]

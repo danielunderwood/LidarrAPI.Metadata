@@ -187,6 +187,8 @@ def get_release_group_info(mbid):
     artist_art_providers = provider.get_providers_implementing(
         provider.ArtistArtworkMixin)
     track_providers = provider.get_providers_implementing(provider.TracksByReleaseGroupMixin)
+    link_providers = provider.get_providers_implementing(provider.ReleaseGroupLinkMixin)
+    overview_providers = provider.get_providers_implementing(provider.ArtistOverviewMixin)
 
     if release_group_providers:
         release_group = release_group_providers[0].get_release_group_by_id(mbid)
@@ -215,6 +217,28 @@ def get_release_group_info(mbid):
     else:
         # 500 error if we don't have a track provider since it's essential
         return jsonify(error='No track provider available'), 500
+
+    if link_providers and not release_group.get('Links', None):
+        release_group['Links'] = link_providers[0].get_release_group_links(mbid)
+
+    if overview_providers:
+        wikidata_links = filter(
+            lambda link: 'wikidata' in link.get('target', ''),
+            release_group['Links'])
+        wikipedia_links = filter(
+            lambda link: 'wikipedia' in link.get('target', ''),
+            release_group['Links'])
+
+        if wikidata_links:
+            release_group['Overview'] = overview_providers[0].get_artist_overview(
+                wikidata_links[0]['target'])
+        elif wikipedia_links:
+            release_group['Overview'] = overview_providers[0].get_artist_overview(
+                wikipedia_links[0]['target'])
+
+    if 'Overview' not in release_group:
+        release_group['Overview'] = ''
+
 
     if album_art_providers:
         release_group['Images'] = album_art_providers[0].get_album_images(
