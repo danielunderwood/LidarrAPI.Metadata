@@ -552,6 +552,16 @@ class MusicbrainzDbProvider(Provider,
                        'Value': release_group['rating'] / 10 if release_group['rating'] is not None else None}
         }
 
+    def get_earliest_good_date(self, date_json):
+        if not date_json:
+            return None
+        
+        defined = [datetime.datetime(dt['year'], dt['month'], dt['day']) for dt in date_json if dt['year'] and dt['month'] and dt['day']]
+        if defined:
+            return min(defined)
+
+        return min([datetime.datetime(dt['year'] or 1, dt['month'] or 1, dt['day'] or 1) for dt in date_json])
+
     def get_releases_by_rgid(self, rgid):
 
         releases = self.query_from_file('release_by_release_group_id.sql', [rgid])
@@ -564,6 +574,7 @@ class MusicbrainzDbProvider(Provider,
                  'Status': release['status'],
                  'Label': release['label'],
                  'Country': release['country'],
+                 'ReleaseDate': self.get_earliest_good_date(release['release_dates']),
                  'Media': release['media'],
                  'TrackCount': release['track_count']}
                 for release in releases]
